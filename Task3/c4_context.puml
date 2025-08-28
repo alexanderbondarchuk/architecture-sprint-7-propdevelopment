@@ -1,0 +1,55 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+Person(tenant, "Собственник/Жилец", "Управляет домофоном и шлагбаумом через мобильное приложение")
+
+System_Boundary(propdev, "PropDevelopment") {
+    System(mobileApp, "Мобильное приложение", "iOS/Android\nВитрина сервисов для собственников")
+    
+    System(tenantCore, "tenant-core-app", "Kotlin, SpringBoot\nОсновные услуги ЖКХ")
+    System(tenantCoreDB, "tenant-core-db", "PostgreSQL\nДанные услуг ЖКХ")
+    
+    System(smartService, "smart-home-service", "Микросервис\nОбработка команд для умного дома")
+    System(smartDb, "smart-home-db", "PostgreSQL\nБиометрия, номера авто, разрешения")
+    
+    System(authService, "auth-service", "Keycloak\nАутентификация и авторизация")
+    System(authDB, "auth-db", "PostgreSQL\nДанные аутентификации")
+}
+
+' Внешние системы
+System_Ext(partnerAPI, "SmartHome API", "Партнёрская платформа Умного дома")
+System_Ext(paymentSystem, "Платёжная система", "Внешняя платёжная система")
+System_Ext(utilityProvider, "Поставщик ресурсов ЖКХ", "Внешняя система ЖКХ")
+
+' Внешние устройства
+System_Ext(smartDoor, "Интеллектуальный домофон", "Распознавание лиц по биометрии, автоматическое открытие двери + открытие по звонку.")
+System_Ext(smartGate, "Интеллектуальный шлагбаум", "Распознавание номеров автомобилей, автоматическое открытие шлагбаума + классические функции управления")
+
+' Взаимодействия
+Rel(tenant, mobileApp, "Использует", "")
+
+' Аутентификация
+Rel(mobileApp, authService, "Аутентификация", "REST API")
+Rel(authService, authDB, "Чтение/запись данных", "JDBC")
+
+' Основные функции ЖКХ
+Rel(mobileApp, tenantCore, "Работа с услугами ЖКХ", "REST/WS + JWT")
+Rel(tenantCore, tenantCoreDB, "Чтение/запись данных", "JDBC")
+Rel(tenantCore, paymentSystem, "Оплата услуг", "REST API")
+Rel(tenantCore, utilityProvider, "Получение данных", "REST API")
+
+' Умный дом - прямой доступ для управления
+Rel(mobileApp, smartDoor, "Управление доступом", "REST API (биометрия)")
+Rel(mobileApp, smartGate, "Управление доступом", "REST API (номера авто)")
+
+' Умный дом - интеграция через сервис
+Rel(mobileApp, smartService, "Команды управления доступом", "REST API + JWT")
+Rel(smartService, smartDb, "Чтение/запись разрешений", "JDBC")
+Rel(smartService, partnerAPI, "Синхронизация данных", "REST API + OAuth2")
+
+' Связь устройств с партнёрской платформой
+Rel(smartDoor, partnerAPI, "Отправка биометрических данных", "REST API")
+Rel(smartGate, partnerAPI, "Отправка данных автомобилей", "REST API")
+Rel(partnerAPI, smartService, "События распознавания", "Webhooks")
+
+@enduml
